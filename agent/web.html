@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pi · MasterPi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #EAF2FF; --sky-2: #DCE8FF; --card: #FFFFFF; --ink: #1B2240; --ink-2: #5B6487; --line: #CBD6F2;
+    --pi: #FF7A1A; --pi-deep: #E2600A; --face: #1B2240; --eye: #FFFFFF;
+    --go: #22B07D; --go-deep: #178A61; --stop: #EE3B3B; --stop-deep: #C42222;
+    --display: "Bricolage Grotesque", ui-rounded, system-ui, sans-serif;
+    --body: "Figtree", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --sky: #121733; --sky-2: #1A2146; --card: #1E2550; --ink: #EEF2FF; --ink-2: #A3ACD3; --line: #2E3770; --face: #0C1028; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; overflow: hidden; }
+  body { margin: 0; background: var(--sky); color: var(--ink); font: 16px/1.5 var(--body); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--pi); outline-offset: 3px; border-radius: 10px; }
+  .wrap { height: 100dvh; max-width: 1560px; margin: 0 auto; padding: 12px 20px 14px; display: grid;
+          grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; min-height: 0; }
+  .left { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 12px; min-height: 0; }
+  .right { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .right h3 { font: 700 14px var(--body); color: var(--ink-2); margin: 2px 2px 0; }
+  .envs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .envs button { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 10px;
+                 font-size: 13px; font-weight: 700; text-align: left; }
+  .envs button[aria-pressed="true"] { border-color: var(--pi); background: #FFF3EA; color: var(--pi-deep); }
+  @media (prefers-color-scheme: dark) { .envs button[aria-pressed="true"] { background: #3A2A1E; } }
+  .sugs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
+  .sug { text-align: left; background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 12px 14px;
+         display: grid; gap: 2px; transition: border-color .12s, transform .12s; }
+  .sug:hover:not(:disabled) { border-color: var(--pi); transform: translateX(2px); }
+  .sug:disabled { opacity: .5; cursor: default; }
+  .sug b { font: 700 15px/1.3 var(--display); }
+  .sug span { font-size: 13px; color: var(--ink-2); }
+  .stage { position: relative; min-height: 0; container-type: size; display: grid; place-items: center; }
+
+  /* Status bar: who Pi is and what it's doing, plus the three facts that matter */
+  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .bot { width: 54px; flex: none; }
+  .bot svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .bot .eye { transform-box: fill-box; transform-origin: center; transition: transform .18s ease; }
+  .bot .wheel { transform-box: fill-box; transform-origin: center; }
+  .mood-moving .bot .wheel { animation: spin .5s linear infinite; }
+  .mood-thinking .bot .eye { transform: translate(3px, -3px); }
+  .mood-asking .bot .eye { transform: scale(1.18); }
+  .mood-happy .bot .eye { transform: scaleY(.35); }
+  .mood-worried .bot .eye { transform: scaleY(.8) translateY(2px); }
+  .blink .bot .eye { transform: scaleY(.1) !important; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { flex: 1; min-width: 200px; }
+  .say { font: 800 22px/1.2 var(--display); margin: 0; }
+  .sub { color: var(--ink-2); margin: 2px 0 0; font-size: 14px; }
+  .facts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fact { display: inline-flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--line);
+          border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+  .fact.dry { color: var(--pi-deep); border-color: #FFC9A0; }
+  .modes { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 3px; }
+  .modes button { border: 0; background: transparent; border-radius: 99px; padding: 5px 13px; font-size: 13px; font-weight: 700;
+                  color: var(--ink-2); }
+  .modes button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+  .modes button[data-mode="real"][aria-pressed="true"] { background: var(--pi); color: #fff; }
+  .modes button:disabled { cursor: default; opacity: .5; }
+  .battery i { width: 24px; height: 12px; border: 2px solid currentColor; border-radius: 3px; position: relative; display: inline-block; }
+  .battery i::after { content: ""; position: absolute; right: -4px; top: 2px; width: 2px; height: 4px; background: currentColor; }
+  .battery i b { position: absolute; left: 1px; top: 1px; bottom: 1px; background: var(--go); border-radius: 1px; }
+  .battery.low { color: var(--stop); } .battery.low i b { background: var(--stop); }
+  .fact input { width: 34px; height: 20px; appearance: none; background: var(--line); border-radius: 99px; position: relative;
+                cursor: pointer; margin: 0; transition: background .15s; }
+  .fact input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+                       background: #fff; transition: transform .15s; }
+  .fact input:checked { background: var(--go); }
+  .fact input:checked::after { transform: translateX(14px); }
+
+  /* Camera: the centre of the screen */
+  .cam { position: relative; aspect-ratio: 4/3; width: min(100cqw, 100cqh * 4 / 3); background: var(--face); border-radius: 22px; overflow: hidden;
+         box-shadow: 0 24px 50px -30px rgba(27, 34, 64, .55); }
+  .cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #0B0F24; }
+  .cam img.off { display: none; }
+  .cam .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: #A3ACD3; padding: 20px; }
+  .cam .empty b { display: block; color: #EEF2FF; font: 700 20px var(--display); margin-bottom: 4px; }
+  .cam .live { position: absolute; top: 14px; left: 14px; background: rgba(12, 16, 40, .7); color: #fff; font-size: 12px;
+               font-weight: 700; padding: 4px 10px; border-radius: 99px; display: none; align-items: center; gap: 6px; }
+  .cam .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--go); }
+  .cam.on .live { display: inline-flex; }
+  .views { position: absolute; top: 12px; left: 12px; display: flex; gap: 4px; background: rgba(12, 16, 40, .62);
+           padding: 4px; border-radius: 99px; }
+  .views button { border: 0; background: transparent; color: #DDE3FF; font-size: 13px; font-weight: 600; padding: 5px 12px;
+                  border-radius: 99px; }
+  .views button[aria-pressed="true"] { background: #fff; color: var(--ink); }
+  .cam.on.multi .live { top: 54px; }
+  .cam .refresh { position: absolute; top: 12px; right: 12px; background: rgba(255, 255, 255, .14); color: #fff; border: 0;
+                  border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+
+  /* The single decision (Hick + Fitts): sits right under the camera so eyes don't travel */
+  .ask { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(760px, calc(100% - 28px));
+         background: var(--card); border: 2.5px solid var(--pi); border-radius: 20px; padding: 18px 20px;
+         display: flex; align-items: center; gap: 16px; flex-wrap: wrap; box-shadow: 0 14px 34px -18px rgba(226, 96, 10, .55);
+         animation: pop .2s ease-out; }
+  @keyframes pop { from { transform: translate(-50%, 8px); opacity: 0; } }
+  .ask .q { flex: 1; min-width: 200px; }
+  .ask p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .ask h2 { font: 800 clamp(22px, 3vw, 28px)/1.2 var(--display); margin: 2px 0 0; }
+  .ask .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .doit { background: var(--go); color: #fff; border: 0; border-radius: 14px; padding: 15px 34px; font-weight: 700;
+          font-size: 18px; min-width: 160px; box-shadow: 0 4px 0 var(--go-deep); }
+  .doit:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--go-deep); }
+  .ghost { background: transparent; border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 18px; font-weight: 600; }
+  .link { background: none; border: 0; color: var(--ink-2); text-decoration: underline; padding: 8px 4px; font-size: 14px; }
+
+  /* Conversation below the camera */
+  .dock { height: clamp(96px, 20vh, 190px); background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+          overflow-y: auto; padding: 12px 14px; overscroll-behavior: contain; }
+  .chat { display: flex; flex-direction: column; gap: 8px; }
+  .chat:empty { display: none; }
+  .msg { max-width: 78%; padding: 10px 15px; border-radius: 18px; }
+  .msg.you { align-self: flex-end; background: var(--ink); color: var(--card); border-bottom-right-radius: 6px; }
+  @media (prefers-color-scheme: dark) { .msg.you { background: var(--pi); color: #1B1206; } }
+  .msg.pi { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 6px;
+            font: 500 17px/1.45 var(--display); }
+  .msg.err { align-self: flex-start; background: #FFE9E9; color: #8A1616; border: 1px solid #F6B9B9; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 4px; padding-left: 6px; }
+  .step { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink-2); }
+  .step .mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px;
+                font-weight: 700; flex: none; background: var(--sky-2); }
+  .step.done .mark { background: var(--go); color: #fff; }
+  .step.skip .mark { background: var(--line); }
+  .step.halt .mark { background: var(--stop); color: #fff; }
+  .step .detail { opacity: .75; font-size: 13px; }
+  .ideas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .ideas span { color: var(--ink-2); font-size: 14px; margin-right: 4px; }
+  .idea { background: var(--card); border: 1.5px solid var(--line); border-radius: 99px; padding: 8px 15px; font-weight: 600; font-size: 15px; }
+  .idea:hover { border-color: var(--pi); }
+  #raw { white-space: pre-wrap; font: 12px/1.5 ui-monospace, Menlo, monospace; margin: 0; color: var(--ink-2); }
+  .rawbtn { background: none; border: 0; color: var(--ink-2); font-size: 13px; font-weight: 600; text-decoration: underline; padding: 4px; }
+  .dim .dock, .dim .composer, .dim .sugs, .dim .envs { opacity: .35; pointer-events: none; }
+
+  /* Composer + STOP share the bottom row: no overlap, STOP always in the same corner */
+  .composer { display: flex; align-items: center; gap: 14px; }
+  .right .stop { width: 100%; height: 86px; border-radius: 24px; }
+  .right .stop small { display: inline; margin-left: 8px; }
+  .composer form { flex: 1; }
+  form { display: flex; gap: 8px; background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 6px;
+         box-shadow: 0 10px 30px -20px rgba(27, 34, 64, .5); }
+  form:focus-within { border-color: var(--pi); }
+  #cmd { flex: 1; min-width: 0; border: 0; background: transparent; font: 500 17px var(--body); padding: 12px; color: var(--ink); }
+  #cmd:focus { outline: none; }
+  .send { background: var(--pi); color: #fff; border: 0; border-radius: 13px; padding: 0 22px; font-weight: 700; }
+  .send:disabled { background: var(--line); color: var(--ink-2); cursor: default; }
+  .stop { flex: none; width: 92px; height: 92px; border-radius: 50%; border: 0;
+          background: var(--stop); color: #fff; font: 800 19px var(--display);
+          box-shadow: 0 6px 0 var(--stop-deep), 0 16px 30px -10px rgba(238, 59, 59, .6); }
+  .stop:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--stop-deep); }
+  .stop small { display: block; font: 600 11px var(--body); opacity: .85; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    .right { flex-direction: row; align-items: stretch; }
+    .right h3, .envs { display: none; }
+    .sugs { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    .sug { min-width: 200px; }
+    .right .stop { width: 90px; height: auto; flex: none; }
+    .right .stop small { display: none; }
+  }
+  @media (max-width: 700px) {
+    .wrap { padding: 10px 12px 12px; gap: 10px; }
+    .bot { width: 44px; } .say { font-size: 19px; } .sub { display: none; }
+    .facts { width: 100%; }
+    .cam { border-radius: 16px; }
+    .stop { width: 72px; height: 72px; font-size: 16px; }
+    .stop small { display: none; }
+    .ask { bottom: 8px; padding: 14px; }
+    .doit { flex: 1; padding: 13px 20px; }
+    .dock { height: clamp(84px, 17vh, 140px); }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="bar">
+    <div class="bot" aria-hidden="true">
+      <svg viewBox="0 0 120 120">
+        <path d="M60 20 L60 6 M52 6 h16" stroke="var(--pi)" stroke-width="6" stroke-linecap="round"/>
+        <rect x="14" y="20" width="92" height="70" rx="22" fill="var(--pi)"/>
+        <rect x="24" y="30" width="72" height="50" rx="15" fill="var(--face)"/>
+        <ellipse class="eye" cx="46" cy="52" rx="7" ry="9" fill="var(--eye)"/>
+        <ellipse class="eye" cx="74" cy="52" rx="7" ry="9" fill="var(--eye)"/>
+        <path id="mouth" d="M48 68 Q60 74 72 68" stroke="var(--eye)" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <g class="wheel"><circle cx="30" cy="102" r="13" fill="var(--pi)"/><path d="M22 96 L38 108 M22 108 L38 96" stroke="var(--pi-deep)" stroke-width="3"/></g>
+        <g class="wheel"><circle cx="90" cy="102" r="13" fill="var(--pi)"/><path d="M82 96 L98 108 M82 108 L98 96" stroke="var(--pi-deep)" stroke-width="3"/></g>
+        <rect x="38" y="94" width="44" height="12" rx="6" fill="var(--ink-2)"/>
+      </svg>
+    </div>
+    <div class="status">
+      <p class="say" id="say" aria-live="polite">Ready</p>
+      <p class="sub" id="sub">Tell Pi what to do. It checks with you before every move.</p>
+    </div>
+    <div class="facts">
+      <div class="modes" role="group" aria-label="Where commands go">
+        <button data-mode="sim" aria-pressed="false">Simulation</button>
+        <button data-mode="real" aria-pressed="false">Real robot</button>
+      </div>
+      <span class="fact battery" id="bat" title="Battery"><i><b style="width:0"></b></i><span>–</span></span>
+      <span class="fact" id="robot">…</span>
+      <label class="fact" title="When on, every move waits for your OK">Ask first <input type="checkbox" id="auto" checked></label>
+      <button class="rawbtn" id="resetBtn" hidden>Reset lab</button>
+      <button class="rawbtn" id="rawBtn" aria-pressed="false">Raw log</button>
+    </div>
+  </header>
+
+  <div class="main">
+  <div class="left">
+  <div class="stage">
+  <section class="cam" id="cam" aria-label="Robot camera">
+    <div class="empty" id="camEmpty"><div><b>No camera picture</b><span id="camWhy">Waiting for the robot's camera.</span></div></div>
+    <img id="camImg" class="off" alt="Live view from the robot's gripper camera">
+    <span class="live">Live</span>
+    <div class="views" id="views" hidden>
+      <button data-cam="lab" aria-pressed="true">Lab</button>
+      <button data-cam="robot" aria-pressed="false">Robot's eye</button>
+      <button data-cam="top" aria-pressed="false">Top</button>
+    </div>
+    <button class="refresh" id="camRefresh">Refresh</button>
+  </section>
+  <section class="ask" id="ask" hidden aria-live="assertive">
+    <div class="q"><p>Okay to do this?</p><h2 id="askWhat"></h2></div>
+    <div class="row">
+      <button class="doit" id="doit" data-a="run">Do it</button>
+      <button class="ghost" data-a="skip">Skip</button>
+      <button class="link" data-a="quit">Cancel task</button>
+    </div>
+  </section>
+
+  </div>
+
+  <div class="dock" id="dock">
+  <div class="chat" id="chat"></div>
+  <pre id="raw" hidden></pre>
+  </div>
+
+  <div class="composer">
+    <form id="f">
+      <input id="cmd" autocomplete="off" placeholder="Tell Pi what to do…" aria-label="Command for the robot">
+      <button class="send" id="send">Send</button>
+    </form>
+  </div>
+  </div>
+  <aside class="right" aria-label="Suggestions">
+    <h3 id="envTitle">Scene</h3>
+    <div class="envs" id="envs"></div>
+    <h3>Try one</h3>
+    <div class="sugs" id="sugs"></div>
+    <button class="stop" id="stop" aria-label="Stop the robot now">STOP<small>or Esc</small></button>
+  </aside>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const post = (u, b) => fetch(u, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b || {})}).then(r => r.json());
+const MOUTHS = {
+  idle: "M48 68 Q60 74 72 68", thinking: "M50 70 L70 70", asking: "M54 70 Q60 64 66 70 Q60 76 54 70",
+  moving: "M46 66 Q60 78 74 66", happy: "M44 64 Q60 82 76 64", worried: "M48 72 Q60 64 72 72",
+};
+const LINES = {
+  idle: ["Ready", "Tell Pi what to do. It checks with you before every move."],
+  thinking: ["Planning…", "Working out the steps."],
+  asking: ["Waiting for your OK", "Nothing moves until you say so."],
+  moving: ["Moving", "The red button stops it any time."],
+  happy: ["Done", "What next?"],
+  worried: ["Something went wrong", ""],
+  stopped: ["Stopped", "Motors are off. Send a new command when ready."],
+};
+let shown = 0, lastMood = "", wasBusy = false, lastError = "", streamUrl = null, streamTried = false, sim = false, view = "lab", curMode = null;
+
+function mood(m, sub) {
+  const face = m === "stopped" ? "worried" : m;
+  document.body.className = "mood-" + face;
+  $("#mouth").setAttribute("d", MOUTHS[face]);
+  if (m !== lastMood || sub) { $("#say").textContent = LINES[m][0]; $("#sub").textContent = sub ?? LINES[m][1]; lastMood = m; }
+}
+function bubble(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; $("#chat").appendChild(d); }
+function step(kind, text, detail) {
+  let box = $("#chat").lastElementChild;
+  if (!box || !box.classList.contains("steps")) { box = document.createElement("div"); box.className = "steps"; $("#chat").appendChild(box); }
+  const s = document.createElement("div"); s.className = "step " + kind;
+  s.innerHTML = `<span class="mark">${{run: "…", done: "✓", skip: "–", halt: "■"}[kind]}</span><span></span>`;
+  s.lastChild.textContent = text[0].toUpperCase() + text.slice(1);
+  if (detail) { const d = document.createElement("span"); d.className = "detail"; d.textContent = detail; s.appendChild(d); }
+  box.appendChild(s);
+}
+const NAMES = {look: "taking a photo", battery: "checking the battery", sonar: "measuring the distance ahead", stop: "stopping the motors"};
+function render(t) {
+  if (t.startsWith("you: ")) { bubble("you", t.slice(5)); lastError = ""; return; }
+  if (t.startsWith("gemini: ")) { bubble("pi", t.slice(8)); return; }
+  if (t.startsWith("  run: ")) { const w = t.slice(7); step("run", NAMES[w] || w); if (w === "look") setTimeout(snap, 300); return; }
+  if (t.startsWith("   -> ")) {
+    const last = [...document.querySelectorAll(".step.run")].pop(), r = t.slice(6);
+    if (last) { last.className = "step done"; last.querySelector(".mark").textContent = "✓";
+      if (/ mV$| mm$/.test(r)) { const d = document.createElement("span"); d.className = "detail"; d.textContent = r; last.appendChild(d); } }
+    if (/^error/.test(r)) lastError = r;
+    return;
+  }
+  if (t.startsWith("  skipped: ")) { step("skip", t.slice(11), "skipped"); return; }
+  if (t.startsWith("robot: ")) { step("done", t.slice(7)); return; }
+  if (t.startsWith("scene: ")) { step("done", "loaded " + t.slice(7)); return; }
+  if (t.startsWith("mode: ")) { step("done", "switched to " + t.slice(6)); return; }
+  if (t.startsWith("STOP sent")) { step("halt", "stopped by you"); mood("stopped"); return; }
+  if (/^error|STOP failed/.test(t)) { bubble("err", friendly(t)); lastError = t; mood("worried", friendly(t)); }
+}
+function friendly(t) {
+  if (/ConnectTimeout|ConnectionError|cannot reach|Max retries/.test(t)) return "Can't reach the robot. Check the laptop is on the robot's Wi-Fi and the robot is on.";
+  if (/Gemini 4\d\d/.test(t)) return "Gemini rejected the request. Check GEMINI_API_KEY in .env.";
+  return t.replace(/^error:\s*/, "");
+}
+
+// Camera: live MJPEG straight from the robot when reachable, otherwise one-off snapshots
+function showImg(ok, why) {
+  $("#camImg").classList.toggle("off", !ok); $("#cam").classList.toggle("on", ok && !!streamUrl && $("#camImg").src.includes(streamUrl));
+  $("#camEmpty").hidden = ok; if (why) $("#camWhy").textContent = why;
+}
+function startStream() {
+  const img = $("#camImg");
+  const url = sim ? streamUrl + "?cam=" + view : streamUrl;
+  img.onload = () => showImg(true); img.onerror = () => { showImg(false, "The robot's camera stream isn't answering. Refresh to retry."); };
+  img.src = url;
+}
+function snap() {
+  const img = $("#camImg");
+  img.onload = () => showImg(true); img.onerror = () => showImg(false, streamUrl ? "No picture from the robot yet." : "Practice mode has no camera.");
+  img.src = "/snapshot.jpg?t=" + Date.now();
+}
+$("#camRefresh").onclick = () => streamUrl ? startStream() : snap();
+document.querySelectorAll("#views button").forEach(b => b.onclick = () => {
+  view = b.dataset.cam;
+  document.querySelectorAll("#views button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  startStream();
+});
+
+async function poll() {
+  let s;
+  try { s = await fetch("/state").then(r => r.json()); } catch { mood("worried", "Lost the app server. Restart agent/web.py."); return; }
+  sim = !!s.sim;
+  $("#robot").hidden = sim;
+  $("#robot").textContent = s.dry_run ? "Practice mode" : s.robot.replace(/^http:\/\//, "").replace(/:\d+\/$/, "");
+  $("#robot").classList.toggle("dry", s.dry_run);
+  document.querySelectorAll(".modes button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.mode === s.mode); b.disabled = s.busy; });
+  if (s.mode !== curMode) { curMode = s.mode; streamTried = false; battery(); if (!sim) view = "robot"; else view = "lab";
+    document.querySelectorAll("#views button").forEach(x => x.setAttribute("aria-pressed", x.dataset.cam === view)); }
+  $("#views").hidden = !sim; $("#cam").classList.toggle("multi", sim); $("#resetBtn").hidden = !sim;
+  if (s.stream !== streamUrl) { streamUrl = s.stream; streamTried = false; }
+  if (!streamUrl && !streamTried) $("#camImg").classList.add("off");
+  if (!streamTried) { streamTried = true; streamUrl ? startStream() : snap(); }
+  if (document.activeElement !== $("#auto")) $("#auto").checked = !s.auto;
+  LINES.idle[1] = s.auto ? "Tell Pi what to do. It acts straight away." : "Tell Pi what to do. It checks with you before every move.";
+  if (lastMood === "idle") $("#sub").textContent = LINES.idle[1];
+  if (s.log.length < shown) { $("#chat").innerHTML = ""; shown = 0; }
+  const fresh = s.log.slice(shown);
+  fresh.forEach(l => render(l.text));
+  $("#raw").textContent = s.log.slice(-60).map(l => l.t + "  " + l.text).join("\n");
+  shown = s.log.length;
+  renderSide(s);
+
+  const ask = $("#ask");
+  if (s.pending) {
+    if (ask.hidden) { ask.hidden = false; $("#askWhat").textContent = s.pending.desc[0].toUpperCase() + s.pending.desc.slice(1); $("#doit").focus({preventScroll: true}); }
+    $("#app").classList.add("dim"); mood("asking");
+  } else {
+    ask.hidden = true; $("#app").classList.remove("dim");
+    if (s.busy) mood(document.querySelector(".step.run") ? "moving" : "thinking");
+    else if (wasBusy && lastMood !== "stopped") lastError ? mood("worried", friendly(lastError)) : mood("happy");
+    else if (!lastMood) mood("idle");
+  }
+  $("#send").disabled = s.busy;
+  wasBusy = s.busy;
+  if (fresh.length) { const d = $("#dock"); d.scrollTop = d.scrollHeight; }
+}
+
+let sideKey = "";
+function renderSide(s) {
+  const key = s.mode + "|" + s.env;
+  if (key !== sideKey) {
+    sideKey = key;
+    $("#envTitle").hidden = $("#envs").hidden = !s.sim;
+    $("#envs").innerHTML = "";
+    if (s.sim) s.envs.forEach(e => {
+      const b = document.createElement("button"); b.textContent = e.name; b.setAttribute("aria-pressed", e.id === s.env);
+      b.onclick = () => { if (e.id !== s.env) { mood("thinking", "Loading " + e.name + "…"); post("/env", {env: e.id}).then(() => { lastMood = ""; mood("idle"); poll(); }); } };
+      $("#envs").appendChild(b);
+    });
+    $("#sugs").innerHTML = "";
+    s.suggestions.forEach(g => {
+      const b = document.createElement("button"); b.className = "sug";
+      b.innerHTML = "<b></b><span></span>"; b.firstChild.textContent = g.text; b.lastChild.textContent = g.hint;
+      b.onclick = () => send(g.text);
+      $("#sugs").appendChild(b);
+    });
+  }
+  document.querySelectorAll(".sug, .envs button").forEach(b => b.disabled = s.busy);
+}
+
+async function battery() {
+  const b = await fetch("/battery").then(r => r.json()).catch(() => ({})), el = $("#bat");
+  if (!b.mv) { el.lastElementChild.textContent = "–"; return; }
+  const pct = Math.max(0, Math.min(100, Math.round((b.mv - 6800) / 16)));
+  el.querySelector("b").style.width = (pct * 0.18) + "px";
+  el.lastElementChild.textContent = (b.mv / 1000).toFixed(1) + " V";
+  el.classList.toggle("low", b.mv < 7000);
+}
+
+function send(text) {
+  if (!text) return;
+  mood("thinking"); // react instantly, before the server answers
+  post("/command", {text}).then(r => { if (r.ok) $("#cmd").value = ""; poll(); });
+}
+$("#f").onsubmit = e => { e.preventDefault(); send($("#cmd").value.trim()); };
+document.querySelectorAll("#ask button").forEach(b => b.onclick = () => { $("#ask").hidden = true; post("/confirm", {answer: b.dataset.a}).then(poll); });
+const stop = () => { mood("stopped"); post("/stop").then(poll); };
+$("#stop").onclick = stop;
+document.addEventListener("keydown", e => { if (e.key === "Escape") stop(); });
+$("#auto").onchange = e => post("/auto", {on: !e.target.checked});
+document.querySelectorAll(".modes button").forEach(b => b.onclick = () => {
+  if (b.getAttribute("aria-pressed") === "true") return;
+  mood("thinking", b.dataset.mode === "sim" ? "Switching to the simulation…" : "Connecting to the robot…");
+  post("/mode", {mode: b.dataset.mode}).then(() => { lastMood = ""; mood("idle"); poll(); });
+});
+$("#resetBtn").onclick = () => post("/reset").then(() => { mood("idle"); poll(); });
+$("#rawBtn").onclick = () => {
+  const on = $("#raw").hidden; $("#raw").hidden = !on; $("#chat").hidden = on;
+  $("#rawBtn").setAttribute("aria-pressed", on); $("#rawBtn").textContent = on ? "Conversation" : "Raw log";
+  const d = $("#dock"); d.scrollTop = d.scrollHeight;
+};
+setInterval(() => { if (lastMood === "idle" || lastMood === "happy") { document.body.classList.add("blink"); setTimeout(() => document.body.classList.remove("blink"), 140); } }, 3800);
+
+mood("idle"); poll(); battery();
+setInterval(poll, 400);
+setInterval(battery, 10000);
+$("#cmd").focus();
+</script>
+</body>
+</html>

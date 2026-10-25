@@ -1,0 +1,37 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "masterpi-agent-sim",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "/Users/adnan/Documents/masterpi_bridge/agent/web.py",
+        "--sim",
+        "--port",
+        "3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "masterpi-agent-dry",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "/Users/adnan/Documents/masterpi_bridge/agent/web.py",
+        "--dry-run",
+        "--port",
+        "3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "masterpi-agent",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "/Users/adnan/Documents/masterpi_bridge/agent/web.py",
+        "--port",
+        "3000"
+      ],
+      "port": 3000
+    }
+  ]
+}
