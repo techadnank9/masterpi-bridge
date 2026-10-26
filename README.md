@@ -13,9 +13,13 @@
 [![Tests](https://img.shields.io/badge/tests-13%20passing-2EA44F)](#tests)
 [![Deps](https://img.shields.io/badge/server%20deps-stdlib%20%2B%20requests-lightgrey)](#project-layout)
 
-<img src="ui_screenshot_done.png" alt="The web app: live camera from the robot, the user typed 'drive forward a little', the robot did it and replied" width="820">
+<img src="docs/images/tidyup.gif" alt="The robot in a simulated living room picks up four toys one by one and drops each in the toy box" width="640">
 
-*Real robot, real camera feed. "drive forward a little" → one confirmed move → done.*
+*One sentence, "Tidy up: put every toy in the toy box". Gemini plans the order and makes four pick-and-places on its own (sped up 12×).*
+
+<img src="docs/images/real_robot_ui.png" alt="The web app on the real robot: live camera feed, the user typed 'drive forward a little', the robot did it and replied" width="640">
+
+*Same app on the real robot. "drive forward a little" → one confirmed move → done.*
 
 </div>
 
@@ -38,6 +42,20 @@ Verified end to end in simulation:
 |---|---|---|
 | *"stack red on the yellow square, then blue on red"* (one sentence, no hints) | locate → pick red → place on yellow → pick blue → place on red | **112 s** |
 | *"put green block on red"* | locate → approach → pick → place_on | **44 s** |
+| *"Tidy up: put every toy in the toy box"* (living room scene) | locate → 4 × (pick → place_on) → locate to check | **about 2.7 min** |
+
+## Screenshots
+
+| | |
+|---|---|
+| <img src="docs/images/tidyup_before.png" alt="Living room scene before: four toys scattered on the floor and rug, empty toy box" width="420"> | <img src="docs/images/tidyup_after.png" alt="Living room scene after: all four toys inside the toy box" width="420"> |
+| **Before:** four toys scattered around the living room | **After:** one sentence later, every toy is in the box |
+| <img src="docs/images/view_top.png" alt="Top-down camera of the living room with the robot carrying a toy" width="420"> | <img src="docs/images/view_robot_eye.png" alt="The robot's gripper camera looking at the toy box" width="420"> |
+| **Top camera**, switchable live in the app | **Robot's eye**, the gripper camera Gemini sees with `look` |
+
+<img src="docs/images/sim_app_living_room.png" alt="The full web app in simulation mode: camera in the middle, Gemini's completed steps listed below it, scenes and suggested commands on the right" width="820">
+
+*The web app in simulation mode. Gemini's steps tick off below the camera, and you can switch scenes and try suggested commands on the right.*
 
 ---
 
@@ -531,6 +549,7 @@ masterpi-bridge/
 │   ├── envs.py       # sim scenes: lab, living room, warehouse, Mars
 │   └── dryrun.py     # prints calls instead of sending them
 ├── assets/textures/  # floor and table textures for the scenes
+├── docs/images/      # README screenshots and the tidy-up GIF
 ├── pi_fallback/      # on-robot motor tests, used during bring-up
 ├── tests/            # offline tests: RPC encoding, agent loop, sim
 └── cli.py            # direct control, no LLM
