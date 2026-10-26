@@ -35,6 +35,9 @@
                  font-size: 13px; font-weight: 700; text-align: left; }
   .envs button[aria-pressed="true"] { border-color: var(--pi); background: #FFF3EA; color: var(--pi-deep); }
   @media (prefers-color-scheme: dark) { .envs button[aria-pressed="true"] { background: #3A2A1E; } }
+  .fold { background: none; border: 0; padding: 0; font: inherit; color: inherit; display: inline-flex; gap: 6px; align-items: center; }
+  .fold span { display: inline-block; transition: transform .15s; }
+  .fold[aria-expanded="false"] span { transform: rotate(-90deg); }
   .pad { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px; display: grid; gap: 8px; }
   .dpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .arm { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -289,7 +292,7 @@
   <aside class="right" aria-label="Suggestions">
     <h3 id="envTitle">Scene</h3>
     <div class="envs" id="envs"></div>
-    <h3>Drive and arm</h3>
+    <h3><button class="fold" id="padToggle" aria-expanded="true" aria-controls="pad">Drive and arm <span aria-hidden="true">▾</span></button></h3>
     <div class="pad" id="pad">
       <div class="dpad">
         <button data-act="turn_left" title="Turn left (Q)">⟲ Turn</button>
@@ -366,6 +369,7 @@ function render(t) {
   if (t.startsWith("button: ")) { lastError = ""; return; }
   if (t.startsWith("robot: ")) { step("done", t.slice(7).replace(/, done$/, "")); return; }
   if (t.startsWith("scene: ")) { step("done", "loaded " + t.slice(7)); return; }
+  if (t.startsWith("mode: ")) { lastError = ""; }
   if (t.startsWith("mode: ")) { step("done", "switched to " + t.slice(6)); return; }
   if (t.startsWith("STOP sent")) { step("halt", "stopped by you"); mood("stopped"); return; }
   if (/^error|STOP failed/.test(t)) { bubble("err", friendly(t)); lastError = t; mood("worried", friendly(t)); }
@@ -507,6 +511,12 @@ document.querySelectorAll(".modes button").forEach(b => b.onclick = () => {
   mood("thinking", b.dataset.mode === "sim" ? "Switching to the simulation…" : "Connecting to the robot…");
   post("/mode", {mode: b.dataset.mode}).then(() => { lastMood = ""; mood("idle"); poll(); });
 });
+function setPad(open) {
+  $("#pad").hidden = !open; $("#padToggle").setAttribute("aria-expanded", open);
+  try { localStorage.setItem("padOpen", open ? "1" : "0"); } catch (e) {}
+}
+$("#padToggle").onclick = () => setPad($("#pad").hidden);
+try { if (localStorage.getItem("padOpen") === "0") setPad(false); } catch (e) {}
 const manual = act => { mood("moving"); post("/manual", {action: act}).then(r => { lastMood = ""; mood(r.ok ? "happy" : "worried", r.ok ? "Done. Pick another move." : undefined); poll(); }); };
 document.querySelectorAll(".pad button[data-act]").forEach(b => b.onclick = () => manual(b.dataset.act));
 document.querySelector(".pad [data-stop]").onclick = () => stop();
