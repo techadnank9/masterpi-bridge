@@ -35,6 +35,16 @@
                  font-size: 13px; font-weight: 700; text-align: left; }
   .envs button[aria-pressed="true"] { border-color: var(--pi); background: #FFF3EA; color: var(--pi-deep); }
   @media (prefers-color-scheme: dark) { .envs button[aria-pressed="true"] { background: #3A2A1E; } }
+  .pad { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px; display: grid; gap: 8px; }
+  .dpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .arm { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pad button { border: 1.5px solid var(--line); background: var(--sky); border-radius: 12px; padding: 9px 4px; font-weight: 700;
+                font-size: 13px; line-height: 1.1; }
+  .pad button:hover:not(:disabled) { border-color: var(--pi); }
+  .pad button:active:not(:disabled) { transform: scale(.96); }
+  .pad button:disabled { opacity: .45; cursor: default; }
+  .pad .big { font-size: 18px; }
+  .pad .halt { background: #FFE3E3; border-color: #F6B9B9; color: var(--stop-deep); }
   .sugs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
   .sug { text-align: left; background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 12px 14px;
          display: grid; gap: 2px; transition: border-color .12s, transform .12s; }
@@ -96,7 +106,7 @@
            padding: 4px; border-radius: 99px; }
   .views button { border: 0; background: transparent; color: #DDE3FF; font-size: 13px; font-weight: 600; padding: 5px 12px;
                   border-radius: 99px; }
-  .views button[aria-pressed="true"] { background: #fff; color: var(--ink); }
+  .views button[aria-pressed="true"] { background: #fff; color: #1B2240; }
   .cam.on.multi .live { top: 54px; }
   .cam .tools { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
   .cam .tools button { background: rgba(255, 255, 255, .14); color: #fff; border: 0;
@@ -279,6 +289,26 @@
   <aside class="right" aria-label="Suggestions">
     <h3 id="envTitle">Scene</h3>
     <div class="envs" id="envs"></div>
+    <h3>Drive and arm</h3>
+    <div class="pad" id="pad">
+      <div class="dpad">
+        <button data-act="turn_left" title="Turn left (Q)">⟲ Turn</button>
+        <button data-act="forward" class="big" title="Forward (↑)" aria-label="Forward">↑</button>
+        <button data-act="turn_right" title="Turn right (E)">Turn ⟳</button>
+        <button data-act="left" class="big" title="Slide left (←)" aria-label="Slide left">←</button>
+        <button data-stop class="halt" title="Stop (Esc)">■ Stop</button>
+        <button data-act="right" class="big" title="Slide right (→)" aria-label="Slide right">→</button>
+        <span></span>
+        <button data-act="back" class="big" title="Back (↓)" aria-label="Back">↓</button>
+        <span></span>
+      </div>
+      <div class="arm">
+        <button data-act="arm_home">Arm home</button>
+        <button data-act="arm_low">Reach down</button>
+        <button data-act="grip_open">Open</button>
+        <button data-act="grip_close">Close</button>
+      </div>
+    </div>
     <h3>Try one</h3>
     <div class="sugs" id="sugs"></div>
     <button class="stop" id="stop" aria-label="Stop the robot now">STOP<small>or Esc</small></button>
@@ -333,7 +363,8 @@ function render(t) {
     return;
   }
   if (t.startsWith("  skipped: ")) { step("skip", t.slice(11), "skipped"); return; }
-  if (t.startsWith("robot: ")) { step("done", t.slice(7)); return; }
+  if (t.startsWith("button: ")) { lastError = ""; return; }
+  if (t.startsWith("robot: ")) { step("done", t.slice(7).replace(/, done$/, "")); return; }
   if (t.startsWith("scene: ")) { step("done", "loaded " + t.slice(7)); return; }
   if (t.startsWith("mode: ")) { step("done", "switched to " + t.slice(6)); return; }
   if (t.startsWith("STOP sent")) { step("halt", "stopped by you"); mood("stopped"); return; }
@@ -428,7 +459,7 @@ function renderSide(s) {
       $("#sugs").appendChild(b);
     });
   }
-  document.querySelectorAll(".sug, .envs button").forEach(b => b.disabled = s.busy);
+  document.querySelectorAll(".sug, .envs button, .pad button[data-act]").forEach(b => b.disabled = s.busy);
 }
 
 async function battery() {
@@ -475,6 +506,14 @@ document.querySelectorAll(".modes button").forEach(b => b.onclick = () => {
   if (b.getAttribute("aria-pressed") === "true") return;
   mood("thinking", b.dataset.mode === "sim" ? "Switching to the simulation…" : "Connecting to the robot…");
   post("/mode", {mode: b.dataset.mode}).then(() => { lastMood = ""; mood("idle"); poll(); });
+});
+const manual = act => { mood("moving"); post("/manual", {action: act}).then(r => { lastMood = ""; mood(r.ok ? "happy" : "worried", r.ok ? "Done. Pick another move." : undefined); poll(); }); };
+document.querySelectorAll(".pad button[data-act]").forEach(b => b.onclick = () => manual(b.dataset.act));
+document.querySelector(".pad [data-stop]").onclick = () => stop();
+const KEYS = {ArrowUp: "forward", ArrowDown: "back", ArrowLeft: "left", ArrowRight: "right", q: "turn_left", e: "turn_right"};
+document.addEventListener("keydown", e => {
+  if (document.activeElement === $("#cmd") || !KEYS[e.key] || $("#pad button[data-act]").disabled) return;
+  e.preventDefault(); manual(KEYS[e.key]);
 });
 $("#resetBtn").onclick = () => post("/reset").then(() => { mood("idle"); poll(); });
 $("#rawBtn").onclick = () => {

@@ -110,6 +110,20 @@ class Agent:
             self.log(f"STOP failed: {e}")
 
 
+MANUAL = {  # button -> (log text, action). Short, slow moves; every drive ends in stop().
+    "forward": ("drive forward", lambda b: b.drive(90, 0.5, speed=25)),
+    "back": ("drive back", lambda b: b.drive(270, 0.5, speed=25)),
+    "left": ("slide left", lambda b: b.drive(180, 0.5, speed=25)),
+    "right": ("slide right", lambda b: b.drive(0, 0.5, speed=25)),
+    "turn_left": ("turn left", lambda b: b.turn(-0.3, 0.4)),
+    "turn_right": ("turn right", lambda b: b.turn(0.3, 0.4)),
+    "arm_home": ("tuck the arm in", lambda b: b.arm_home(900)),
+    "arm_low": ("reach down in front", lambda b: b.pose("low", 900)),
+    "grip_open": ("open the gripper", lambda b: b.gripper(1500)),
+    "grip_close": ("close the gripper", lambda b: b.gripper(2000)),
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     agent: Agent = None
 
@@ -208,6 +222,30 @@ class Handler(BaseHTTPRequestHandler):
             a.bot.rpc.reset()
             a.log("lab reset")
             return self.send(200, {"ok": True})
+        if self.path == "/manual":
+            name = b.get("action")
+            if name not in MANUAL:
+                return self.send(400, {"ok": False})
+            if a.busy:
+                return self.send(409, {"ok": False, "error": "busy"})
+            text, act = MANUAL[name]
+            a.busy = True
+            a.bot.abort.clear()
+            a.log(f"button: {text}")
+            try:
+                act(a.bot)
+                a.log(f"robot: {text}, done")
+                ok = True
+            except Exception as e:
+                try:
+                    a.bot.stop()
+                except Exception:
+                    pass
+                a.log(f"error: {e}")
+                ok = False
+            finally:
+                a.busy = False
+            return self.send(200, {"ok": ok})
         if self.path == "/env" and self.sim:
             if a.busy:
                 return self.send(409, {"ok": False, "error": "busy"})
