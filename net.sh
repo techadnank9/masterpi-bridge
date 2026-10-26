@@ -46,7 +46,7 @@ status() {
 }
 
 start() {
-  ssh -o BatchMode=yes -o ConnectTimeout=5 pi@$ROBOT 'sudo systemctl start masterpi.service' \
+  ssh -o BatchMode=yes -o ConnectTimeout=5 pi@$ROBOT 'sudo systemctl enable --now masterpi.service 2>/dev/null' \
     && echo "control service started" || { echo "could not start it (robot reachable? run: net.sh status)"; return 1; }
   for i in $(seq 1 15); do nc -z -G 1 $ROBOT 9030 2>/dev/null && { echo "control server up"; return 0; }; sleep 1; done
   echo "service started but port 9030 not open yet"

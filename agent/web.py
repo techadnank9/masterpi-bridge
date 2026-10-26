@@ -110,15 +110,15 @@ class Agent:
             self.log(f"STOP failed: {e}")
 
 
-MANUAL = {  # button -> (log text, action). Short, slow moves; every drive ends in stop().
-    "forward": ("drive forward", lambda b: b.drive(90, 0.5, speed=25)),
-    "back": ("drive back", lambda b: b.drive(270, 0.5, speed=25)),
-    "left": ("slide left", lambda b: b.drive(180, 0.5, speed=25)),
-    "right": ("slide right", lambda b: b.drive(0, 0.5, speed=25)),
-    "turn_left": ("turn left", lambda b: b.turn(-0.3, 0.4)),
-    "turn_right": ("turn right", lambda b: b.turn(0.3, 0.4)),
-    "arm_home": ("tuck the arm in", lambda b: b.arm_home(900)),
-    "arm_low": ("reach down in front", lambda b: b.pose("low", 900)),
+MANUAL = {  # button -> (log text, action). Gentle on purpose: half-charged cells reset the Pi on current spikes.
+    "forward": ("drive forward", lambda b: b.drive(90, 0.6, speed=18)),
+    "back": ("drive back", lambda b: b.drive(270, 0.6, speed=18)),
+    "left": ("slide left", lambda b: b.drive(180, 0.6, speed=18)),
+    "right": ("slide right", lambda b: b.drive(0, 0.6, speed=18)),
+    "turn_left": ("turn left", lambda b: b.turn(-0.2, 0.5)),
+    "turn_right": ("turn right", lambda b: b.turn(0.2, 0.5)),
+    "arm_home": ("tuck the arm in", lambda b: b.arm_home(1600)),
+    "arm_low": ("reach down in front", lambda b: b.pose("low", 1600)),
     "grip_open": ("open the gripper", lambda b: b.gripper(1500)),
     "grip_close": ("close the gripper", lambda b: b.gripper(2000)),
 }
