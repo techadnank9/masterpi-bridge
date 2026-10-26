@@ -12,6 +12,7 @@
 #   venue      move the robot onto a building Wi-Fi (asks you for its password); run while on robot Wi-Fi
 #   find       find the robot on the current network and save ROBOT_HOST in .env
 #   home-ap    put the robot back on its own HW- Wi-Fi (run while you can reach it)
+#   isolation  does the Wi-Fi the Mac is on let devices see each other? (test a venue network first)
 ROBOT_SSID="${ROBOT_SSID:-HW-676EB762}"
 ROBOT_PASS="${ROBOT_PASS:-hiwonder}"
 PHONE_SSID="${PHONE_SSID:-iPhone (2)}"
@@ -90,6 +91,34 @@ print(\"saved to\", path)
   home-ap)
     ssh -o BatchMode=yes pi@$ROBOT 'sudo sed -i -E "s/^(HW_WIFI_MODE|HW_WIFI_STA_SSID|HW_WIFI_STA_PASSWORD)/# \1/" /home/pi/hiwonder-toolbox/*wifi_conf.py && sudo systemctl restart hw_wifi.service' \
       && { set_host 192.168.149.1; echo "robot back on its own Wi-Fi (HW-676EB762) in ~30 s"; } ;;
+  isolation)
+    ip=$(wifi_ip); [ -z "$ip" ] && { echo "Mac is not on Wi-Fi"; exit 1; }
+    echo "Mac on $ip, gateway $(route -n get default 2>/dev/null | awk '/gateway/{print $2}')"
+    python3 - "$ip" <<'PY'
+import ipaddress, socket, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
+ip = sys.argv[1]
+net = ipaddress.ip_network(f"{ip}/22" if ip.startswith("10.") else f"{ip}/24", strict=False)
+def probe(h):
+    for port in (22, 80, 443, 8080, 9030):
+        try:
+            socket.create_connection((str(h), port), 0.25).close()
+            return str(h)
+        except OSError:
+            pass
+with ThreadPoolExecutor(256) as ex:
+    peers = [p for p in ex.map(probe, net.hosts()) if p and p != ip]
+arp = subprocess.run(["arp", "-an"], capture_output=True, text=True).stdout
+macs = {l.split(" at ")[1].split()[0] for l in arp.splitlines() if " at " in l and "incomplete" not in l and "on en0" in l}
+print(f"devices answering: {len(peers)}, distinct hardware addresses seen: {len(macs)}")
+if len(peers) > 3 and len(macs) <= 2:
+    print("ISOLATED: every device answers from the same address (proxy ARP). The robot would be unreachable here.")
+elif len(peers) == 0:
+    print("ISOLATED or empty: no other device is reachable. The robot would most likely be unreachable here.")
+else:
+    print("OPEN: devices can see each other. Worth moving the robot here: net.sh venue \"<network name>\"")
+PY
+    ;;
   find)
     host=$(python3 "$DIR/find_robot.py" | head -1)
     if [ "$host" = "not found" ] || [ -z "$host" ]; then echo "robot not found on this network (venue Wi-Fi may isolate devices)"; exit 1; fi
