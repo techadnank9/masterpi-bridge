@@ -90,7 +90,10 @@ class Agent:
                 handle(self.gem, self.bot, text, self.auto, confirm=self.confirm, log=self.log)
             except Exception as e:
                 self.log(f"error: {e}")
-                self.stop()
+                try:
+                    self.bot.stop()  # motors off, but this is a failure, not the user's STOP
+                except Exception:
+                    pass
             finally:
                 self.busy = False
 

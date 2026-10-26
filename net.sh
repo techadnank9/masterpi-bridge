@@ -9,11 +9,19 @@
 #   check      battery, control server and camera on the robot
 #   up         robot + start + check, in one go
 #   ssh        open a shell on the robot
+#   venue      move the robot onto a building Wi-Fi (asks you for its password); run while on robot Wi-Fi
+#   find       find the robot on the current network and save ROBOT_HOST in .env
+#   home-ap    put the robot back on its own HW- Wi-Fi (run while you can reach it)
 ROBOT_SSID="${ROBOT_SSID:-HW-676EB762}"
 ROBOT_PASS="${ROBOT_PASS:-hiwonder}"
 PHONE_SSID="${PHONE_SSID:-iPhone (2)}"
-ROBOT=192.168.149.1
 DIR="$(cd "$(dirname "$0")" && pwd)"
+ROBOT="$(grep -s '^ROBOT_HOST=' "$DIR/.env" | cut -d= -f2)"; ROBOT="${ROBOT:-192.168.149.1}"
+
+set_host() {  # remember where the robot is, for the web app and the commands below
+  touch "$DIR/.env"; grep -v '^ROBOT_HOST=' "$DIR/.env" > "$DIR/.env.tmp"; echo "ROBOT_HOST=$1" >> "$DIR/.env.tmp"
+  mv "$DIR/.env.tmp" "$DIR/.env"; ROBOT="$1"
+}
 
 wifi_ip() { ifconfig en0 2>/dev/null | awk '/inet /{print $2}'; }
 
@@ -29,6 +37,7 @@ join() {  # ssid [password]; retries while the network appears
 
 status() {
   echo "wifi:     $(wifi_ip || true) $( [ "$(wifi_ip | cut -d. -f1-3)" = 192.168.149 ] && echo '(robot Wi-Fi)')"
+  echo "robot at: $ROBOT"
   if nc -z -G 2 $ROBOT 9030 2>/dev/null; then echo "robot:    control server up"
   elif nc -z -G 2 $ROBOT 22 2>/dev/null; then echo "robot:    reachable, control server off  ->  net.sh start"
   else echo "robot:    not reachable"; fi
@@ -49,7 +58,7 @@ check() {
 }
 
 case "$1" in
-  robot) echo "joining $ROBOT_SSID"; join "$ROBOT_SSID" "$ROBOT_PASS"
+  robot) set_host 192.168.149.1; echo "joining $ROBOT_SSID"; join "$ROBOT_SSID" "$ROBOT_PASS"
          for i in $(seq 1 10); do [ "$(wifi_ip | cut -d. -f1-3)" = 192.168.149 ] && break; sleep 1; done
          status ;;
   phone) echo "joining $PHONE_SSID"; join "$PHONE_SSID"; sleep 3; status ;;
@@ -59,6 +68,33 @@ case "$1" in
   check) check ;;
   up)    "$0" robot && start && check ;;
   ssh)   ssh pi@$ROBOT ;;
+  venue)
+    ssid="${2:-SHACK15_Members}"
+    nc -z -G 3 $ROBOT 22 2>/dev/null || { echo "join the robot's Wi-Fi first: net.sh robot"; exit 1; }
+    printf "Password for %s (hidden): " "$ssid"; read -rs pass; echo
+    # Credentials go over SSH stdin, never on a command line. The robot falls back to its own HW- Wi-Fi
+    # if it cannot join, and KEY1 (long press) forces that too.
+    printf '%s\n%s\n' "$ssid" "$pass" | ssh -o BatchMode=yes pi@$ROBOT 'sudo python3 -c "
+import sys, glob
+ssid, pw = sys.stdin.read().split(chr(10))[:2]
+path = (glob.glob(\"/home/pi/hiwonder-toolbox/hiwonder_wifi_conf.py\") + glob.glob(\"/home/pi/hiwonder-toolbox/wifi_conf.py\"))[0]
+keep = [l for l in open(path).read().splitlines() if not l.strip().startswith((\"HW_WIFI_MODE\", \"HW_WIFI_STA_SSID\", \"HW_WIFI_STA_PASSWORD\"))]
+keep += [\"HW_WIFI_MODE = 2\", \"HW_WIFI_STA_SSID = %r\" % ssid, \"HW_WIFI_STA_PASSWORD = %r\" % pw]
+open(path, \"w\").write(chr(10).join(keep) + chr(10))
+print(\"saved to\", path)
+"' || exit 1
+    unset pass
+    echo "restarting the robot's Wi-Fi; it will leave HW-676EB762 now"
+    ssh -o BatchMode=yes pi@$ROBOT 'sudo systemctl restart hw_wifi.service' 2>/dev/null
+    echo "next: join $ssid on this Mac, wait ~40 s, then: net.sh find" ;;
+  home-ap)
+    ssh -o BatchMode=yes pi@$ROBOT 'sudo sed -i -E "s/^(HW_WIFI_MODE|HW_WIFI_STA_SSID|HW_WIFI_STA_PASSWORD)/# \1/" /home/pi/hiwonder-toolbox/*wifi_conf.py && sudo systemctl restart hw_wifi.service' \
+      && { set_host 192.168.149.1; echo "robot back on its own Wi-Fi (HW-676EB762) in ~30 s"; } ;;
+  find)
+    host=$(python3 "$DIR/find_robot.py" | head -1)
+    if [ "$host" = "not found" ] || [ -z "$host" ]; then echo "robot not found on this network (venue Wi-Fi may isolate devices)"; exit 1; fi
+    echo "robot at $host"; set_host "$host"
+    echo "saved ROBOT_HOST=$host in .env; restart the web app to use it" ;;
   status|"") status ;;
-  *) sed -n '2,10p' "$0" ;;
+  *) sed -n '2,13p' "$0" ;;
 esac

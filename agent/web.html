@@ -98,8 +98,20 @@
                   border-radius: 99px; }
   .views button[aria-pressed="true"] { background: #fff; color: var(--ink); }
   .cam.on.multi .live { top: 54px; }
-  .cam .refresh { position: absolute; top: 12px; right: 12px; background: rgba(255, 255, 255, .14); color: #fff; border: 0;
-                  border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+  .cam .tools { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
+  .cam .tools button { background: rgba(255, 255, 255, .14); color: #fff; border: 0;
+                       border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+  .cam .tools button[hidden] { display: none; }
+  .cam .tools .icon { width: 31px; padding: 0; display: grid; place-items: center; }
+  .cam .tools .icon .exit, .cam .tools .icon[aria-pressed="true"] .enter { display: none; }
+  .cam .tools .icon[aria-pressed="true"] .exit { display: inline; }
+
+  /* Full screen: the stage (camera + the decision card) fills the display; STOP comes along */
+  .stage:fullscreen { background: #0B0F24; padding: 16px; }
+  .stage:-webkit-full-screen { background: #0B0F24; padding: 16px; width: 100%; height: 100%; }
+  .stage .fsstop { display: none; }
+  .stage:fullscreen .fsstop { display: block; position: absolute; right: 24px; bottom: 24px; z-index: 5; }
+  .stage:-webkit-full-screen .fsstop { display: block; position: absolute; right: 24px; bottom: 24px; z-index: 5; }
 
   /* The single decision (Hick + Fitts): sits right under the camera so eyes don't travel */
   .ask { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(760px, calc(100% - 28px));
@@ -220,7 +232,7 @@
 
   <div class="main">
   <div class="left">
-  <div class="stage">
+  <div class="stage" id="stage">
   <section class="cam" id="cam" aria-label="Robot camera">
     <div class="empty" id="camEmpty"><div><b>No camera picture</b><span id="camWhy">Waiting for the robot's camera.</span></div></div>
     <img id="camImg" class="off" alt="Live view from the robot's gripper camera">
@@ -230,7 +242,15 @@
       <button data-cam="robot" aria-pressed="false">Robot's eye</button>
       <button data-cam="top" aria-pressed="false">Top</button>
     </div>
-    <button class="refresh" id="camRefresh">Refresh</button>
+    <div class="tools">
+      <button class="refresh" id="camRefresh">Refresh</button>
+      <button class="icon" id="camFull" aria-pressed="false" aria-label="Full screen" title="Full screen" hidden>
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path class="enter" d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4"/>
+          <path class="exit" d="M5.5 1.5v4h-4M14.5 5.5h-4v-4M10.5 14.5v-4h4M1.5 10.5h4v4"/>
+        </svg>
+      </button>
+    </div>
   </section>
   <section class="ask" id="ask" hidden aria-live="assertive">
     <div class="q"><p>Okay to do this?</p><h2 id="askWhat"></h2></div>
@@ -240,6 +260,7 @@
       <button class="link" data-a="quit">Cancel task</button>
     </div>
   </section>
+  <button class="stop fsstop" id="fsStop" aria-label="Stop the robot now">STOP</button>
 
   </div>
 
@@ -321,6 +342,7 @@ function render(t) {
 function friendly(t) {
   if (/ConnectTimeout|ConnectionError|cannot reach|Max retries/.test(t)) return "Can't reach the robot. Check the laptop is on the robot's Wi-Fi and the robot is on.";
   if (/Gemini 4\d\d/.test(t)) return "Gemini rejected the request. Check GEMINI_API_KEY in .env.";
+  if (/lost the connection to Gemini|Connection aborted|RemoteDisconnected/.test(t)) return "Lost the connection to Gemini. Check the laptop's internet, then send the command again.";
   return t.replace(/^error:\s*/, "");
 }
 
@@ -428,6 +450,26 @@ document.querySelectorAll("#ask button").forEach(b => b.onclick = () => { $("#as
 const stop = () => { mood("stopped"); post("/stop").then(poll); };
 $("#stop").onclick = stop;
 document.addEventListener("keydown", e => { if (e.key === "Escape") stop(); });
+$("#fsStop").onclick = stop;
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+let fsLeaving = false;
+$("#camFull").hidden = !(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+$("#camFull").onclick = () => {
+  const st = $("#stage");
+  if (fsEl()) { fsLeaving = true; (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+  else (st.requestFullscreen || st.webkitRequestFullscreen).call(st);
+};
+const onFullscreen = () => {
+  const on = !!fsEl();
+  const label = on ? "Exit full screen" : "Full screen";
+  $("#camFull").setAttribute("aria-label", label); $("#camFull").title = label;
+  $("#camFull").setAttribute("aria-pressed", on);
+  // The browser eats Esc to leave full screen, so leaving any way but the button while Pi is busy counts as STOP
+  if (!on && !fsLeaving && wasBusy) stop();
+  fsLeaving = false;
+};
+document.addEventListener("fullscreenchange", onFullscreen);
+document.addEventListener("webkitfullscreenchange", onFullscreen);
 $("#auto").onchange = e => post("/auto", {on: !e.target.checked});
 document.querySelectorAll(".modes button").forEach(b => b.onclick = () => {
   if (b.getAttribute("aria-pressed") === "true") return;

@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -55,7 +56,14 @@ class Gemini:
             body["generation_config"] = {"thinking_level": self.thinking_level}
         if self.prev_id:
             body["previous_interaction_id"] = self.prev_id
-        r = requests.post(API, json=body, headers={"x-goog-api-key": self.key}, timeout=120)
+        for attempt in range(3):  # venue Wi-Fi drops connections; retry before giving up
+            try:
+                r = requests.post(API, json=body, headers={"x-goog-api-key": self.key}, timeout=120)
+                break
+            except (requests.ConnectionError, requests.Timeout):
+                if attempt == 2:
+                    raise RuntimeError("lost the connection to Gemini (check the laptop's internet)")
+                time.sleep(1.5 * (attempt + 1))
         if r.status_code == 400 and self.thinking_level and "thinking" in r.text:
             self.thinking_level = None  # field not accepted for this model: retry without it
             return self.send(input_)
